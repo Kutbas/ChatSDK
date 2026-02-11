@@ -7,6 +7,7 @@
 
 // 引入 SDK 头文件
 #include "../sdk/include/DeepSeekProvider.h"
+#include "../sdk/include/ChatGPTProvider.h"
 #include "../sdk/include/util/myLog.h"
 
 // 测试用例：验证 DeepSeek 全量消息发送
@@ -52,27 +53,27 @@ TEST(DeepSeekProviderTest, sendMessage)
 }
 
 // 测试用例：验证 DeepSeek 流式响应
-TEST(DeepSeekProviderTest, sendMessageStream) {
+TEST(DeepSeekProviderTest, sendMessageStream)
+{
     // 1. 实例化 DeepSeekProvider
     auto provider = std::make_shared<ai_chat_sdk::DeepSeekProvider>();
     ASSERT_TRUE(provider != nullptr);
 
     // 2. 初始化模型参数 (从环境变量获取 Key)
     std::map<std::string, std::string> modelConfig;
-    const char* apiKey = std::getenv("deepseek_apikey");
+    const char *apiKey = std::getenv("deepseek_apikey");
     ASSERT_TRUE(apiKey != nullptr) << "Environment variable 'deepseek_apikey' not set!";
-    
+
     modelConfig["api_key"] = apiKey;
     modelConfig["endpoint"] = "https://api.deepseek.com";
-    
+
     bool initRet = provider->initModel(modelConfig);
     ASSERT_TRUE(initRet);
 
     // 3. 准备请求参数
     std::map<std::string, std::string> requestParam = {
         {"temperature", "0.7"},
-        {"max_tokens", "2048"}
-    };
+        {"max_tokens", "2048"}};
 
     // 4. 构造消息上下文
     std::vector<ai_chat_sdk::Message> messages;
@@ -80,14 +81,17 @@ TEST(DeepSeekProviderTest, sendMessageStream) {
 
     // 5. 定义流式回调函数 (Lambda)
     // 这里的逻辑模拟了用户如何处理接收到的数据
-    auto writeChunk = [&](const std::string &chunk, bool last) {
+    auto writeChunk = [&](const std::string &chunk, bool last)
+    {
         // 打印每一个接收到的数据块
-        if (!chunk.empty()) {
-            INFO("chunk : {}", chunk); 
+        if (!chunk.empty())
+        {
+            INFO("chunk : {}", chunk);
         }
-        
+
         // 如果检测到结束标记
-        if (last) {
+        if (last)
+        {
             INFO("[DONE] - Stream finished.");
         }
     };
@@ -102,6 +106,43 @@ TEST(DeepSeekProviderTest, sendMessageStream) {
     INFO("Full Response : {}", fullData);
 }
 
+TEST(ChatGPTProviderTest, sendMessage)
+{
+    // 1. 实例化 Provider
+    auto provider = std::make_shared<ai_chat_sdk::ChatGPTProvider>();
+    ASSERT_TRUE(provider != nullptr);
+
+    // 2. 初始化配置
+    std::map<std::string, std::string> modelParam;
+    // 从环境变量获取 Key，避免硬编码
+    const char *apiKey = std::getenv("chatgpt_apikey");
+    ASSERT_TRUE(apiKey != nullptr) << "Environment variable 'chatgpt_apikey' not set!";
+
+    modelParam["api_key"] = apiKey;
+    modelParam["endpoint"] = "https://api.openai.com"; // OpenAI 官方端点
+
+    provider->initModel(modelParam);
+    ASSERT_TRUE(provider->isAvailable());
+
+    // 3. 构造请求参数
+    // 注意：OpenAI 新版 API 推荐使用 max_output_tokens
+    std::map<std::string, std::string> requestParam = {
+        {"temperature", "0.7"},
+        {"max_output_tokens", "2048"}};
+
+    // 4. 构造消息
+    std::vector<ai_chat_sdk::Message> messages;
+    messages.push_back({"user", "你是谁？"});
+
+    // 5. 发送请求并验证
+    std::string fullData = provider->sendMessage(messages, requestParam);
+
+    // 确保返回不为空
+    ASSERT_FALSE(fullData.empty());
+
+    // 打印模型回复
+    INFO("ChatGPT Response: {}", fullData);
+}
 
 // 主函数：初始化环境并运行所有测试
 int main(int argc, char **argv)
