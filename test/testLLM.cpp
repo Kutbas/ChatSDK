@@ -39,7 +39,7 @@ TEST(DeepSeekProviderTest, sendMessage)
 
     // 4. 构造消息上下文
     std::vector<ai_chat_sdk::Message> messages;
-    messages.push_back({"user", "你好，请做一个简短的自我介绍。"});
+    messages.push_back({"user", "我现在正在进行 DeepSeek 全量返回测试，如果成功请回复"});
 
     // 5. 发送全量消息
     std::string response = provider->sendMessage(messages, requestParam);
@@ -77,7 +77,7 @@ TEST(DeepSeekProviderTest, sendMessageStream)
 
     // 4. 构造消息上下文
     std::vector<ai_chat_sdk::Message> messages;
-    messages.push_back({"user", "请用 20 个字以内解释什么是流式响应。"});
+    messages.push_back({"user", "我现在正在进行 DeepSeek 流式响应测试，如果成功请回复"});
 
     // 5. 定义流式回调函数 (Lambda)
     // 这里的逻辑模拟了用户如何处理接收到的数据
@@ -106,6 +106,7 @@ TEST(DeepSeekProviderTest, sendMessageStream)
     INFO("Full Response : {}", fullData);
 }
 
+// 测试用例：验证 ChatGPT 全量返回
 TEST(ChatGPTProviderTest, sendMessage)
 {
     // 1. 实例化 Provider
@@ -132,7 +133,7 @@ TEST(ChatGPTProviderTest, sendMessage)
 
     // 4. 构造消息
     std::vector<ai_chat_sdk::Message> messages;
-    messages.push_back({"user", "你是谁？"});
+    messages.push_back({"user", "我现在正在进行 ChatGPT 全量返回测试，如果成功请回复"});
 
     // 5. 发送请求并验证
     std::string fullData = provider->sendMessage(messages, requestParam);
@@ -142,6 +143,48 @@ TEST(ChatGPTProviderTest, sendMessage)
 
     // 打印模型回复
     INFO("ChatGPT Response: {}", fullData);
+}
+
+// 测试用例：验证 ChatGPT 流式响应
+TEST(ChatGPTProviderTest, sendMessageStream)
+{
+    auto provider = std::make_shared<ai_chat_sdk::ChatGPTProvider>();
+    ASSERT_TRUE(provider != nullptr);
+
+    // 1. 初始化配置 (从环境变量获取 Key)
+    std::map<std::string, std::string> modelParam;
+    modelParam["api_key"] = std::getenv("chatgpt_apikey");
+    modelParam["endpoint"] = "https://api.openai.com"; // OpenAI 官方端点
+
+    ASSERT_TRUE(provider->initModel(modelParam));
+    ASSERT_TRUE(provider->isAvailable());
+
+    // 2. 构造请求参数
+    std::map<std::string, std::string> requestParam = {
+        {"temperature", "0.7"},
+        {"max_output_tokens", "2048"}};
+
+    // 3. 构造消息上下文
+    std::vector<ai_chat_sdk::Message> messages;
+    messages.push_back({"user", "我现在正在进行 ChatGPT 流式响应测试，如果成功请回复"});
+
+    // 4. 定义回调函数 (Lambda)
+    auto writeChunk = [&](const std::string &chunk, bool last)
+    {
+        // 打印每一个数据块
+        INFO("chunk : {}", chunk);
+        if (last)
+        {
+            INFO("[DONE] Stream finished.");
+        }
+    };
+
+    // 5. 发送流式请求
+    std::string fullData = provider->sendMessageStream(messages, requestParam, writeChunk);
+
+    // 6. 验证结果
+    ASSERT_FALSE(fullData.empty());
+    INFO("Full Response : {}", fullData);
 }
 
 // 主函数：初始化环境并运行所有测试
