@@ -186,12 +186,189 @@ namespace ai_chat_sdk
         return "";
     }
 
+    // 发送消息 - 增量返回 - 流式响应
     std::string GeminiProvider::sendMessageStream(const std::vector<Message> &messages,
                                                   const std::map<std::string, std::string> &requestParam,
                                                   std::function<void(const std::string &, bool)> callback)
     {
-        // TODO: 实现 Gemini 流式请求
-        return "";
+        // 1. 检测模型是否可用
+        if (!isAvailable())
+        {
+            ERR("GeminiProvider::sendMessageStream: model not available");
+            return "";
+        }
+
+        // 2. 构造请求参数
+        float temperature = 0.7f;
+        int max_tokens = 2048;
+
+        if (requestParam.find("temperature") != requestParam.end())
+        {
+            temperature = std::stof(requestParam.at("temperature"));
+        }
+        if (requestParam.find("max_tokens") != requestParam.end())
+        {
+            max_tokens = std::stoi(requestParam.at("max_tokens"));
+        }
+
+        // 构造历史消息
+        Json::Value messagesArray(Json::arrayValue);
+        for (const auto &msg : messages)
+        {
+            Json::Value messageObj(Json::objectValue);
+            messageObj["role"] = msg._role;
+            messageObj["content"] = msg._content;
+            messagesArray.append(messageObj);
+        }
+
+        // 3. 构造请求体 (开启 stream)
+        Json::Value requestBody(Json::objectValue);
+        requestBody["model"] = getModelName();
+        requestBody["messages"] = messagesArray;
+        requestBody["temperature"] = temperature;
+        requestBody["max_tokens"] = max_tokens;
+        requestBody["stream"] = true; // 关键！
+
+        // 序列化
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = "";
+        std::string requestBodyStr = Json::writeString(writerBuilder, requestBody);
+
+        // 4. 创建 HTTP 客户端
+        httplib::Client client(_endpoint.c_str());
+        client.set_connection_timeout(60, 0);
+        client.set_read_timeout(300, 0); // 流式响应超时设长
+        client.set_proxy("127.0.0.1", 1080); // 科学上网代理
+
+        httplib::Headers headers = {
+            {"Authorization", "Bearer " + _apiKey},
+            {"Content-Type", "application/json"}};
+
+        // 5. 定义流式处理变量
+        std::string buffer;    // 缓冲区
+        bool gotError = false; // 错误标记
+        std::string errorMsg;
+        int statusCode = 0;
+        bool streamFinish = false; // 结束标记
+        std::string fullData;      // 完整回复累积
+
+        // 6. 构造 Request 对象
+        httplib::Request request;
+        request.method = "POST";
+        request.path = "/v1beta/openai/chat/completions";
+        request.body = requestBodyStr;
+        request.headers = headers;
+
+        // 7. 响应头处理器
+        request.response_handler = [&](const httplib::Response &res)
+        {
+            statusCode = res.status;
+            if (statusCode != 200)
+            {
+                gotError = true;
+                errorMsg = "HTTP status code: " + std::to_string(statusCode);
+                ERR("Gemini Stream Handshake Failed: {}", errorMsg);
+                return false; // 终止
+            }
+            return true;
+        };
+
+        // 8. 内容接收处理器 (SSE 解析核心)
+        request.content_receiver = [&](const char *data, size_t dataLength, uint64_t, uint64_t)
+        {
+            if (gotError)
+                return false;
+
+            // 追加新数据到缓冲区
+            buffer.append(data, dataLength);
+
+            // 循环处理缓冲区中的完整消息 (以 \n\n 分隔)
+            size_t pos = 0;
+            while ((pos = buffer.find("\n\n")) != std::string::npos)
+            {
+                // 提取一行完整的数据
+                std::string line = buffer.substr(0, pos);
+                // 移除已处理部分 (+2 跳过 \n\n)
+                buffer.erase(0, pos + 2);
+
+                // 忽略空行和 SSE 注释 (以冒号开头)
+                if (line.empty() || line[0] == ':')
+                    continue;
+
+                // 解析 data: 开头的数据
+                if (line.compare(0, 6, "data: ") == 0)
+                {
+                    std::string dataStr = line.substr(6);
+
+                    // 处理结束标记
+                    if (dataStr == "[DONE]")
+                    {
+                        streamFinish = true;
+                        if (callback)
+                            callback("", true);
+                        return true;
+                    }
+
+                    // JSON 反序列化
+                    Json::Value chunk;
+                    Json::CharReaderBuilder reader;
+                    std::stringstream ss(dataStr);
+                    std::string errors;
+
+                    if (Json::parseFromStream(reader, ss, &chunk, &errors))
+                    {
+                        // 提取 content
+                        // 路径: choices[0].delta.content
+                        if (chunk.isMember("choices") &&
+                            chunk["choices"].isArray() &&
+                            !chunk["choices"].empty())
+                        {
+
+                            auto choice = chunk["choices"][0];
+                            if (choice.isMember("delta") &&
+                                choice["delta"].isObject() &&
+                                choice["delta"].isMember("content"))
+                            {
+
+                                std::string deltaContent = choice["delta"]["content"].asString();
+
+                                // 累积完整回复
+                                fullData += deltaContent;
+
+                                // 触发回调
+                                if (callback)
+                                    callback(deltaContent, false);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ERR("Gemini JSON Parse Failed: {}", errors);
+                        // 不终止流，继续处理后续块
+                    }
+                }
+            }
+            return true; // 继续接收
+        };
+
+        // 9. 发送请求
+        auto res = client.send(request);
+
+        // 10. 错误处理
+        if (!res)
+        {
+            ERR("Gemini Network Error: {}", to_string(res.error()));
+            return "";
+        }
+
+        if (!streamFinish && !gotError)
+        {
+            WARN("Stream ended without [DONE] marker");
+            if (callback)
+                callback("", true);
+        }
+
+        return fullData;
     }
 
 } // namespace ai_chat_sdk

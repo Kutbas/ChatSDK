@@ -228,6 +228,64 @@ TEST(GeminiProviderTest, sendMessage)
     INFO("Gemini Response: {}", fullData);
 }
 
+// 测试用例：验证 Gemini 流式响应
+TEST(GeminiProviderTest, sendMessageStream)
+{
+    // 1. 实例化 GeminiProvider
+    auto provider = std::make_shared<ai_chat_sdk::GeminiProvider>();
+    ASSERT_TRUE(provider != nullptr);
+
+    // 2. 初始化配置
+    std::map<std::string, std::string> modelParam;
+
+    // 从环境变量获取 Key，避免硬编码
+    const char *apiKey = std::getenv("gemini_apikey");
+    ASSERT_TRUE(apiKey != nullptr) << "Environment variable 'gemini_apikey' not set!";
+
+    modelParam["api_key"] = apiKey;
+    modelParam["endpoint"] = "https://generativelanguage.googleapis.com"; // Gemini 官方端点
+
+    // 执行初始化
+    provider->initModel(modelParam);
+    ASSERT_TRUE(provider->isAvailable());
+
+    // 3. 构造请求参数
+    // Gemini 兼容接口使用标准的 max_tokens
+    std::map<std::string, std::string> requestParam = {
+        {"temperature", "0.7"},
+        {"max_tokens", "2048"}};
+
+    // 4. 构造消息上下文
+    std::vector<ai_chat_sdk::Message> messages;
+    messages.push_back({"user", "我现在正在进行 Gemini 流式响应测试，如果成功请回复：Gemini 流式响应测试成功！"});
+
+    // 5. 定义回调函数 (Lambda 表达式)
+    // 参数 chunk: 本次接收到的增量文本
+    // 参数 last: 是否为最后一条数据
+    auto writeChunk = [&](const std::string &chunk, bool last)
+    {
+        // 打印每一个数据块
+        if (!chunk.empty())
+        {
+            INFO("chunk : {}", chunk);
+        }
+
+        // 当检测到流结束时，打印标记
+        if (last)
+        {
+            INFO("[DONE] Stream finished.");
+        }
+    };
+
+    // 6. 调用流式发送接口
+    // fullData 将包含拼接好的完整回复，用于最后的断言检查
+    std::string fullData = provider->sendMessageStream(messages, requestParam, writeChunk);
+
+    // 7. 验证结果
+    ASSERT_FALSE(fullData.empty());
+    INFO("Gemini Full Response: {}", fullData);
+}
+
 // 主函数：初始化环境并运行所有测试
 int main(int argc, char **argv)
 {
