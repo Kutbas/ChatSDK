@@ -19,6 +19,7 @@ add_executable(testLLM
     ../sdk/src/util/myLog.cpp
     ../sdk/src/DeepSeekProvider.cpp
     ../sdk/src/ChatGPTProvider.cpp
+    ../sdk/src/GeminiProvider.cpp
 )
 
 # 6. 设置输出目录 (可选，将可执行文件统一放到 build 根目录)

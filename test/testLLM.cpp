@@ -8,6 +8,7 @@
 // 引入 SDK 头文件
 #include "../sdk/include/DeepSeekProvider.h"
 #include "../sdk/include/ChatGPTProvider.h"
+#include "../sdk/include/GeminiProvider.h"
 #include "../sdk/include/util/myLog.h"
 
 // 测试用例：验证 DeepSeek 全量消息发送
@@ -185,6 +186,46 @@ TEST(ChatGPTProviderTest, sendMessageStream)
     // 6. 验证结果
     ASSERT_FALSE(fullData.empty());
     INFO("Full Response : {}", fullData);
+}
+
+// 测试用例：验证 Gemini 全量返回
+TEST(GeminiProviderTest, sendMessage)
+{
+    // 1. 实例化 GeminiProvider
+    auto provider = std::make_shared<ai_chat_sdk::GeminiProvider>();
+    ASSERT_TRUE(provider != nullptr);
+
+    // 2. 初始化配置
+    std::map<std::string, std::string> modelParam;
+
+    // 从环境变量获取 Key
+    const char *apiKey = std::getenv("gemini_apikey");
+    ASSERT_TRUE(apiKey != nullptr) << "Environment variable 'gemini_apikey' not set!";
+
+    modelParam["api_key"] = apiKey;
+    // Gemini 官方 API 端点
+    modelParam["endpoint"] = "https://generativelanguage.googleapis.com";
+
+    // 执行初始化
+    provider->initModel(modelParam);
+    ASSERT_TRUE(provider->isAvailable());
+
+    // 3. 构造请求参数
+    // 注意：Gemini 兼容接口使用标准的 max_tokens
+    std::map<std::string, std::string> requestParam = {
+        {"temperature", "0.7"},
+        {"max_tokens", "2048"}};
+
+    // 4. 构造消息
+    std::vector<ai_chat_sdk::Message> messages;
+    messages.push_back({"user", "我现在正在进行 Gemini 全量返回测试，如果成功请回复：Gemini 全量返回测试成功！"});
+
+    // 5. 调用全量发送接口
+    std::string fullData = provider->sendMessage(messages, requestParam);
+
+    // 6. 验证结果
+    ASSERT_FALSE(fullData.empty());
+    INFO("Gemini Response: {}", fullData);
 }
 
 // 主函数：初始化环境并运行所有测试

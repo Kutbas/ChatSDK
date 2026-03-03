@@ -16,7 +16,7 @@ namespace ai_chat_sdk
         // 检测模型是否有效
         virtual bool isAvailable() const override;
 
-        // 获取模型名称 (如 "gemini-2.0-flash")
+        // 获取模型名称 (如 "gemini-2.5-flash")
         virtual std::string getModelName() const override;
 
         // 获取模型描述
