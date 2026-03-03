@@ -39,7 +39,7 @@ TEST(DeepSeekProviderTest, sendMessage)
 
     // 4. 构造消息上下文
     std::vector<ai_chat_sdk::Message> messages;
-    messages.push_back({"user", "我现在正在进行 DeepSeek 全量返回测试，如果成功请回复"});
+    messages.push_back({"user", "我现在正在进行 DeepSeek 全量返回测试，如果成功请回复：DeepSeek 全量返回测试成功！"});
 
     // 5. 发送全量消息
     std::string response = provider->sendMessage(messages, requestParam);
@@ -77,7 +77,7 @@ TEST(DeepSeekProviderTest, sendMessageStream)
 
     // 4. 构造消息上下文
     std::vector<ai_chat_sdk::Message> messages;
-    messages.push_back({"user", "我现在正在进行 DeepSeek 流式响应测试，如果成功请回复"});
+    messages.push_back({"user", "我现在正在进行 DeepSeek 流式响应测试，如果成功请回复：DeepSeek 流式响应测试成功！"});
 
     // 5. 定义流式回调函数 (Lambda)
     // 这里的逻辑模拟了用户如何处理接收到的数据
@@ -133,7 +133,7 @@ TEST(ChatGPTProviderTest, sendMessage)
 
     // 4. 构造消息
     std::vector<ai_chat_sdk::Message> messages;
-    messages.push_back({"user", "我现在正在进行 ChatGPT 全量返回测试，如果成功请回复"});
+    messages.push_back({"user", "我现在正在进行 ChatGPT 全量返回测试，如果成功请回复：ChatGPT 全量返回测试成功！"});
 
     // 5. 发送请求并验证
     std::string fullData = provider->sendMessage(messages, requestParam);
@@ -166,7 +166,7 @@ TEST(ChatGPTProviderTest, sendMessageStream)
 
     // 3. 构造消息上下文
     std::vector<ai_chat_sdk::Message> messages;
-    messages.push_back({"user", "我现在正在进行 ChatGPT 流式响应测试，如果成功请回复"});
+    messages.push_back({"user", "我现在正在进行 ChatGPT 流式响应测试，如果成功请回复：ChatGPT 流式响应测试成功！"});
 
     // 4. 定义回调函数 (Lambda)
     auto writeChunk = [&](const std::string &chunk, bool last)
