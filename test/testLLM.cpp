@@ -326,6 +326,39 @@ TEST(OllamaLLMProviderTest, sendMessage)
     INFO("Ollama Response: {}", fullData);
 }
 
+// 测试用例：验证 Ollama 流式响应
+TEST(OllamaLLMProviderTest, sendMessageStream)
+{
+    auto provider = std::make_shared<ai_chat_sdk::OllamaLLMProvider>();
+    ASSERT_TRUE(provider != nullptr);
+
+    std::map<std::string, std::string> modelParam;
+    modelParam["model_name"] = "deepseek-r1:1.5b";
+    modelParam["model_desc"] = "本地部署deepseek-r1:1.5b模型，采用专家混合架构，专注于深度理解与推理";
+    modelParam["endpoint"] = "http://192.168.71.99:11434";
+
+    provider->initModel(modelParam);
+    ASSERT_TRUE(provider->isAvailable());
+
+    std::map<std::string, std::string> requestParam = {
+        {"temperature", "0.7"},
+        {"max_tokens", "2048"}};
+    std::vector<ai_chat_sdk::Message> messages;
+    messages.push_back({"user", "我现在正在进行 Ollama 流式响应测试，如果成功请回复：Ollama 流式响应测试成功！"});
+
+    auto writeChunk = [&](const std::string &chunk, bool last)
+    {
+        INFO("chunk : {}", chunk);
+        if (last)
+        {
+            INFO("[DONE]");
+        }
+    };
+    std::string fullData = provider->sendMessageStream(messages, requestParam, writeChunk);
+    ASSERT_FALSE(fullData.empty());
+    INFO("response : {}", fullData);
+}
+
 // 主函数：初始化环境并运行所有测试
 int main(int argc, char **argv)
 {

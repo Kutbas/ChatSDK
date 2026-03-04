@@ -188,12 +188,168 @@ namespace ai_chat_sdk
         return "";
     }
 
+    // 发送消息 - 增量返回 - 流式响应
     std::string OllamaLLMProvider::sendMessageStream(const std::vector<Message> &messages,
                                                      const std::map<std::string, std::string> &requestParam,
                                                      std::function<void(const std::string &, bool)> callback)
     {
-        // TODO: 实现 Ollama 流式请求
-        return "";
+        // 1. 检测模型是否可用
+        if (!isAvailable())
+        {
+            ERR("OllamaLLMProvider::sendMessageStream: model is not available");
+            return "";
+        }
+
+        // 2. 构造请求参数
+        float temperature = 0.7f;
+        int maxTokens = 2048;
+
+        if (requestParam.find("temperature") != requestParam.end())
+        {
+            temperature = std::stof(requestParam.at("temperature"));
+        }
+        if (requestParam.find("max_tokens") != requestParam.end())
+        {
+            maxTokens = std::stoi(requestParam.at("max_tokens"));
+        }
+
+        // 构造历史消息
+        Json::Value messageArray(Json::arrayValue);
+        for (const auto &message : messages)
+        {
+            Json::Value messageObject(Json::objectValue);
+            messageObject["role"] = message._role;
+            messageObject["content"] = message._content;
+            messageArray.append(messageObject);
+        }
+
+        // 3. 构造请求体 (开启 stream)
+        Json::Value options(Json::objectValue);
+        options["temperature"] = temperature;
+        options["num_ctx"] = maxTokens;
+
+        Json::Value requestBody(Json::objectValue);
+        requestBody["model"] = _modelName;
+        requestBody["messages"] = messageArray;
+        requestBody["options"] = options;
+        requestBody["stream"] = true; // 关键！
+
+        // 序列化
+        Json::StreamWriterBuilder writerBuilder;
+        std::string requestBodyStr = Json::writeString(writerBuilder, requestBody);
+
+        // 4. 创建 HTTP 客户端
+        httplib::Client client(_endpoint.c_str());
+        client.set_connection_timeout(30, 0);
+        client.set_read_timeout(300, 0); // 流式响应超时设长
+
+        // 设置请求头
+        httplib::Headers headers = {
+            {"Content-Type", "application/json"}};
+
+        // 5. 定义流式处理变量
+        std::string buffer;
+        bool gotError = false;
+        std::string errorMsg;
+        int statusCode = 0;
+        bool streamFinish = false;
+        std::string fullData;
+
+        // 6. 构造 Request 对象
+        httplib::Request request;
+        request.method = "POST";
+        request.path = "/api/chat";
+        request.headers = headers;
+        request.body = requestBodyStr;
+
+        // 7. 响应头处理器
+        request.response_handler = [&](const httplib::Response &res)
+        {
+            statusCode = res.status;
+            if (statusCode != 200)
+            {
+                gotError = true;
+                errorMsg = "HTTP status code: " + std::to_string(statusCode);
+                ERR("Ollama Stream Handshake Failed: {}", errorMsg);
+                return false;
+            }
+            return true;
+        };
+
+        // 8. 内容接收处理器 (JSON Stream 解析核心)
+        request.content_receiver = [&](const char *data, size_t dataLen, uint64_t, uint64_t)
+        {
+            if (gotError)
+                return false;
+
+            buffer.append(data, dataLen);
+
+            // 循环处理 buffer 中的完整 JSON 对象 (以 \n 分隔)
+            size_t pos = 0;
+            while ((pos = buffer.find("\n")) != std::string::npos)
+            {
+                std::string chunk = buffer.substr(0, pos);
+                buffer.erase(0, pos + 1); // +1 跳过 \n
+
+                if (chunk.empty())
+                    continue;
+
+                // 反序列化 JSON
+                Json::Value chunkJson;
+                Json::CharReaderBuilder readerBuilder;
+                std::string errors;
+                std::istringstream chunkStream(chunk);
+
+                if (!Json::parseFromStream(readerBuilder, chunkStream, &chunkJson, &errors))
+                {
+                    // Ollama 偶尔可能返回非标准格式，记录错误但不中断
+                    ERR("Ollama JSON Parse Failed: {}", errors);
+                    continue;
+                }
+
+                // A. 处理结束标记 (done: true)
+                if (chunkJson.get("done", false).asBool())
+                {
+                    streamFinish = true;
+                    if (callback)
+                        callback("", true);
+                    return true;
+                }
+
+                // B. 提取增量数据 (message.content)
+                if (chunkJson.isMember("message") &&
+                    chunkJson["message"].isObject() &&
+                    chunkJson["message"].isMember("content"))
+                {
+
+                    std::string delta = chunkJson["message"]["content"].asString();
+                    fullData += delta;
+
+                    // 触发回调
+                    if (callback)
+                        callback(delta, false);
+                }
+            }
+            return true;
+        };
+
+        // 9. 发送请求
+        auto response = client.send(request);
+
+        if (!response)
+        {
+            ERR("Ollama Network Error: {}", to_string(response.error()));
+            return "";
+        }
+
+        if (!streamFinish)
+        {
+            WARN("Stream ended without 'done: true' marker");
+            if (callback)
+                callback("", true);
+        }
+
+        return fullData;
     }
 
 } // namespace ai_chat_sdk
