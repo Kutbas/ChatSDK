@@ -9,6 +9,7 @@
 #include "../sdk/include/DeepSeekProvider.h"
 #include "../sdk/include/ChatGPTProvider.h"
 #include "../sdk/include/GeminiProvider.h"
+#include "../sdk/include/OllamaLLMProvider.h"
 #include "../sdk/include/util/myLog.h"
 
 // 测试用例：验证 DeepSeek 全量消息发送
@@ -284,6 +285,45 @@ TEST(GeminiProviderTest, sendMessageStream)
     // 7. 验证结果
     ASSERT_FALSE(fullData.empty());
     INFO("Gemini Full Response: {}", fullData);
+}
+
+// 测试用例：验证 Ollama 全量返回
+TEST(OllamaLLMProviderTest, sendMessage)
+{
+    // 1. 实例化 OllamaLLMProvider
+    auto provider = std::make_shared<ai_chat_sdk::OllamaLLMProvider>();
+    ASSERT_TRUE(provider != nullptr);
+
+    // 2. 初始化配置
+    std::map<std::string, std::string> modelParam;
+    // 必填：指定本地已下载的模型名称
+    modelParam["model_name"] = "deepseek-r1:1.5b";
+    // 选填：模型描述
+    modelParam["model_desc"] = "本地部署 deepseek-r1:1.5b 模型，采用专家混合架构，专注于深度理解与推理";
+    // 必填：Ollama 服务地址 (本地通常为 http://127.0.0.1:11434)
+    // 如果是远程服务器，请修改 IP，例如 http://192.168.71.99:11434
+    modelParam["endpoint"] = "http://192.168.71.99:11434";
+
+    // 执行初始化
+    provider->initModel(modelParam);
+    ASSERT_TRUE(provider->isAvailable());
+
+    // 3. 构造请求参数
+    // Ollama 兼容 OpenAI 格式，但底层使用的是 num_ctx，我们在 Provider 内部做了映射
+    std::map<std::string, std::string> requestParam = {
+        {"temperature", "0.7"},
+        {"max_tokens", "2048"}};
+
+    // 4. 构造消息
+    std::vector<ai_chat_sdk::Message> messages;
+    messages.push_back({"user", "我现在正在进行 Ollama 全量返回测试，如果成功请回复：Ollama 全量返回测试成功！"});
+
+    // 5. 调用全量发送接口
+    std::string fullData = provider->sendMessage(messages, requestParam);
+
+    // 6. 验证结果
+    ASSERT_FALSE(fullData.empty());
+    INFO("Ollama Response: {}", fullData);
 }
 
 // 主函数：初始化环境并运行所有测试
