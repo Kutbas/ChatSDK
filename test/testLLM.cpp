@@ -10,6 +10,7 @@
 #include "../sdk/include/ChatGPTProvider.h"
 #include "../sdk/include/GeminiProvider.h"
 #include "../sdk/include/OllamaLLMProvider.h"
+#include "../sdk/include/SessionManager.h"
 #include "../sdk/include/util/myLog.h"
 
 // 测试用例：验证 DeepSeek 全量消息发送
@@ -357,6 +358,44 @@ TEST(OllamaLLMProviderTest, sendMessageStream)
     std::string fullData = provider->sendMessageStream(messages, requestParam, writeChunk);
     ASSERT_FALSE(fullData.empty());
     INFO("response : {}", fullData);
+}
+
+// 测试用例：验证 SessionManager 数据持久化 (SQLite)
+TEST(SessionManagerTest, PersistenceTest)
+{
+    const std::string dbName = "test_persistence.db";
+    // 清理旧数据，确保环境纯净
+    std::remove(dbName.c_str());
+
+    std::string targetSessionId;
+
+    // 阶段一：生产数据
+    {
+        ai_chat_sdk::SessionManager managerA(dbName);
+        targetSessionId = managerA.createSession("deepseek-chat");
+
+        ai_chat_sdk::Message msg("user", "Hello Persistence");
+        managerA.addMessage(targetSessionId, msg);
+
+        INFO("Manager A created session: {}", targetSessionId);
+    } // managerA 在这里析构，模拟程序退出
+
+    // 阶段二：恢复数据
+    {
+        ai_chat_sdk::SessionManager managerB(dbName);
+
+        // 1. 验证会话是否存在
+        auto session = managerB.getSession(targetSessionId);
+        ASSERT_TRUE(session != nullptr);
+        ASSERT_EQ(session->_modelName, "deepseek-chat");
+
+        // 2. 验证历史消息是否加载 (懒加载测试)
+        auto history = managerB.getHistoryMessages(targetSessionId);
+        ASSERT_EQ(history.size(), 1);
+        ASSERT_EQ(history[0]._content, "Hello Persistence");
+
+        INFO("Manager B successfully restored session and messages.");
+    }
 }
 
 // 主函数：初始化环境并运行所有测试

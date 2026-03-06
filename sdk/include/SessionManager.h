@@ -14,7 +14,6 @@ namespace ai_chat_sdk
     public:
         // 构造函数：可指定数据库名称
         SessionManager(const std::string &dbName = "chatDB.db");
-        ~SessionManager();
 
         // 1. 创建会话
         // param modelName: 该会话关联的模型 (如 deepseek-chat)
@@ -66,7 +65,7 @@ namespace ai_chat_sdk
         // 会话计数器 (原子操作，用于生成 ID)
         std::atomic<int64_t> _sessionCounter = {0};
 
-        // 数据持久化管理 (后续章节实现)
+        // 数据持久化管理
         DataManager _dataManager;
     };
 

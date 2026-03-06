@@ -21,6 +21,8 @@ add_executable(testLLM
     ../sdk/src/ChatGPTProvider.cpp
     ../sdk/src/GeminiProvider.cpp
     ../sdk/src/OllamaLLMProvider.cpp
+    ../sdk/src/SessionManager.cpp
+    ../sdk/src/DataManager.cpp
 )
 
 # 6. 设置输出目录 (可选，将可执行文件统一放到 build 根目录)
@@ -47,4 +49,5 @@ target_link_libraries(testLLM
     OpenSSL::SSL # SSL 加密
     OpenSSL::Crypto # 加密算法
     pthread # GTest 和 spdlog 需要线程支持
+    sqlite3 # SQLite 数据库 (SessionManager 依赖)
 )
