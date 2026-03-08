@@ -23,6 +23,8 @@ add_executable(testLLM
     ../sdk/src/OllamaLLMProvider.cpp
     ../sdk/src/SessionManager.cpp
     ../sdk/src/DataManager.cpp
+    ../sdk/src/ChatSDK.cpp
+    ../sdk/src/LLMManager.cpp
 )
 
 # 6. 设置输出目录 (可选，将可执行文件统一放到 build 根目录)
