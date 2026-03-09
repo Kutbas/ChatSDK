@@ -186,4 +186,297 @@ namespace ai_chat_server
         response.set_content(responseJsonStr, "application/json");
     }
 
+    // 处理获取会话列表请求
+    void ChatServer::handleGetSessionListsRequest(const httplib::Request &request, httplib::Response &response)
+    {
+        // 1. 从 SDK 获取所有会话的 ID 列表 (已按更新时间降序排列)
+        std::vector<std::string> sessionIDs = _chatSDK->getSessionList();
+
+        // 2. 构建核心数据数组 (data 字段)
+        Json::Value dataArray(Json::arrayValue);
+
+        for (const auto &sessionID : sessionIDs)
+        {
+            auto session = _chatSDK->getSession(sessionID);
+            if (session)
+            {
+                Json::Value sessionJson;
+                sessionJson["id"] = session->_sessionId;
+                sessionJson["model"] = session->_modelName;
+
+                // 时间戳通常使用 int64_t 传递，避免精度丢失或前端解析错误
+                sessionJson["created_at"] = static_cast<int64_t>(session->_createdAt);
+                sessionJson["updated_at"] = static_cast<int64_t>(session->_updatedAt);
+
+                // 统计对话次数
+                sessionJson["message_count"] = static_cast<int>(session->_messages.size());
+
+                // 提取第一条正文消息作为会话的 UI 标题
+                if (!session->_messages.empty())
+                {
+                    sessionJson["first_user_message"] = session->_messages.front()._content;
+                }
+                else
+                {
+                    sessionJson["first_user_message"] = "新会话"; // 如果没有消息的默认提示
+                }
+
+                dataArray.append(sessionJson);
+            }
+        }
+
+        // 3. 构建完整的标准响应体
+        Json::Value responseJson;
+        responseJson["success"] = true;
+        responseJson["message"] = "get session lists success";
+        responseJson["data"] = dataArray;
+
+        // 4. 序列化并填充 HTTP 响应
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = ""; // 使用紧凑的 JSON 格式节省带宽
+        std::string responseJsonStr = Json::writeString(writerBuilder, responseJson);
+
+        response.status = 200; // 成功
+        response.set_content(responseJsonStr, "application/json");
+    }
+
+    // 处理获取可用模型列表请求
+    void ChatServer::handleGetModelListsRequest(const httplib::Request &request, httplib::Response &response)
+    {
+        // 1. 获取底层 SDK 支持且已初始化成功的模型列表
+        auto modelLists = _chatSDK->getAvailableModels();
+
+        // 2. 构建 data 数组
+        Json::Value dataArray(Json::arrayValue);
+        for (const auto &modelInfo : modelLists)
+        {
+            Json::Value modelJson;
+            // 填入模型名称和描述
+            modelJson["name"] = modelInfo._modelName;
+            modelJson["desc"] = modelInfo._modelDesc;
+            dataArray.append(modelJson);
+        }
+
+        // 3. 构建完整的标准响应体
+        Json::Value responseJson;
+        responseJson["success"] = true;
+        responseJson["message"] = "get model lists success";
+        responseJson["data"] = dataArray;
+
+        // 4. 序列化并填充 HTTP 响应
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = "";
+        std::string responseJsonStr = Json::writeString(writerBuilder, responseJson);
+
+        response.status = 200; // HTTP 状态码 200 OK
+        response.set_content(responseJsonStr, "application/json");
+    }
+
+    // 处理删除会话请求
+    void ChatServer::handleDeleteSessionRequest(const httplib::Request &request, httplib::Response &response)
+    {
+        // 1. 获取会话 ID。注意：这里通过正则匹配提取路径参数
+        std::string sessionId = request.matches[1];
+
+        // 2. 调用 SDK 删除会话
+        bool ret = _chatSDK->deleteSession(sessionId);
+
+        // 3. 构造响应与状态码分发
+        if (ret)
+        {
+            // 删除成功，不需要返回额外 data，只需 success 和 message
+            std::string successJsonStr = buildResponse("delete session success", true);
+            response.status = 200;
+            response.set_content(successJsonStr, "application/json");
+        }
+        else
+        {
+            // 删除失败，说明客户端请求的资源不存在
+            std::string errorJsonStr = buildResponse("delete session failed, session not found", false);
+            response.status = 404; // 404 Not Found
+            response.set_content(errorJsonStr, "application/json");
+        }
+    }
+
+    // 处理获取历史消息请求
+    void ChatServer::handleGetHistoryMessagesRequest(const httplib::Request &request, httplib::Response &response)
+    {
+        // 1. 从路径中获取会话 ID
+        std::string sessionId = request.matches[1];
+
+        // 2. 获取会话对象
+        // SDK 内部会自动从 SQLite 数据库懒加载该会话的历史消息
+        auto session = _chatSDK->getSession(sessionId);
+        if (!session)
+        {
+            std::string errorJsonStr = buildResponse("session not found", false);
+            response.status = 404; // 404 Not Found
+            response.set_content(errorJsonStr, "application/json");
+            return;
+        }
+
+        // 3. 构建历史消息列表 (JSON 数组)
+        Json::Value dataArray(Json::arrayValue);
+        for (const auto &message : session->_messages)
+        {
+            Json::Value messageJson;
+            messageJson["id"] = message._messageId;
+            messageJson["role"] = message._role;       // "user" 或 "assistant"
+            messageJson["content"] = message._content; // 具体的文本内容
+
+            // 时间戳强制转换为 int64_t 以确保 JSON 序列化无误
+            messageJson["timestamp"] = static_cast<int64_t>(message._timestamp);
+
+            dataArray.append(messageJson);
+        }
+
+        // 4. 构建标准响应体
+        Json::Value responseJson;
+        responseJson["success"] = true;
+        responseJson["message"] = "get history messages success";
+        responseJson["data"] = dataArray;
+
+        // 5. 序列化为紧凑字符串
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = "";
+        std::string responseJsonStr = Json::writeString(writerBuilder, responseJson);
+
+        // 6. 填充 HTTP 响应
+        response.status = 200; // 200 OK
+        response.set_content(responseJsonStr, "application/json");
+    }
+
+    // 处理发送消息请求 - 全量返回
+    void ChatServer::handleSendMessageRequest(const httplib::Request &request, httplib::Response &response)
+    {
+        // 1. 获取并解析请求参数
+        // 客户端发来的数据在 request.body 中，我们需要将其反序列化为 JSON 对象
+        Json::Value requestJson;
+        Json::Reader reader; // 注：也可使用现代的 Json::CharReaderBuilder
+
+        if (!reader.parse(request.body, requestJson))
+        {
+            // 如果 JSON 格式不合法，返回 400 Bad Request
+            std::string errorJsonStr = buildResponse("parse request body failed, json format error", false);
+            response.status = 400;
+            response.set_content(errorJsonStr, "application/json");
+            return;
+        }
+
+        // 2. 提取并校验核心参数
+        std::string sessionId = requestJson["session_id"].asString();
+        std::string message = requestJson["message"].asString();
+
+        if (sessionId.empty() || message.empty())
+        {
+            std::string errorJsonStr = buildResponse("session_id or message is empty", false);
+            response.status = 400; // 客户端参数缺失
+            response.set_content(errorJsonStr, "application/json");
+            return;
+        }
+
+        // 3. 调用底层的 ChatSDK 发送消息
+        // SDK 内部会自动完成：查找会话 -> 获取历史上下文 -> 组合参数 -> 请求大模型 API -> 存入数据库
+        std::string assistantMessage = _chatSDK->sendMessage(sessionId, message);
+
+        if (assistantMessage.empty())
+        {
+            // 如果返回为空，说明大模型请求失败或网络超时
+            std::string errorJsonStr = buildResponse("Failed to send AI response message (Internal Error)", false);
+            response.status = 500; // 500 服务器内部错误
+            response.set_content(errorJsonStr, "application/json");
+            return;
+        }
+
+        // 4. 构造成功的响应体
+        Json::Value dataJson;
+        dataJson["session_id"] = sessionId;
+        dataJson["response"] = assistantMessage; // 存放 AI 的完整回复
+
+        Json::Value responseJson;
+        responseJson["success"] = true;
+        responseJson["message"] = "send message success";
+        responseJson["data"] = dataJson;
+
+        // 5. 序列化并填充 HTTP 响应
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = ""; // 使用紧凑格式
+        std::string responseJsonStr = Json::writeString(writerBuilder, responseJson);
+
+        response.status = 200; // HTTP 200 OK
+        response.set_content(responseJsonStr, "application/json");
+    }
+
+    // 处理发送消息请求 - 增量返回 (流式响应)
+    void ChatServer::handleSendMessageStreamRequest(const httplib::Request &request, httplib::Response &response)
+    {
+        // 1. 获取并解析请求参数
+        Json::Value requestJson;
+        Json::Reader reader;
+        if (!reader.parse(request.body, requestJson))
+        {
+            std::string errorJsonStr = buildResponse("parse request body failed, json format error", false);
+            response.status = 400;
+            response.set_content(errorJsonStr, "application/json");
+            return;
+        }
+
+        std::string sessionId = requestJson["session_id"].asString();
+        std::string message = requestJson["message"].asString();
+
+        if (sessionId.empty() || message.empty())
+        {
+            std::string errorJsonStr = buildResponse("session_id or message is empty", false);
+            response.status = 400;
+            response.set_content(errorJsonStr, "application/json");
+            return;
+        }
+
+        // 2. 准备流式响应的 HTTP 头部
+        response.status = 200;
+        response.set_header("Cache-Control", "no-cache");        // 禁用缓存
+        response.set_header("Connection", "keep-alive");         // 保持长连接
+        response.set_header("Access-Control-Allow-Origin", "*"); // 允许跨域请求
+        response.set_header("Access-Control-Allow-Headers", "*");
+
+        // 3. 设置分块内容提供者 (Chunked Content Provider)
+        // "text/event-stream" 告诉前端我们将使用 SSE 协议传输
+        response.set_chunked_content_provider("text/event-stream",
+                                              [this, sessionId, message](size_t offset, httplib::DataSink &dataSink) -> bool
+                                              {
+                                                  // 定义内部的回调函数，用于接收底层 ChatSDK 吐出的增量数据
+                                                  auto writeChunk = [&](const std::string &chunk, bool last)
+                                                  {
+                                                      // 将纯文本 chunk 转换为合法的 JSON 字符串，防止特殊字符（特别是 \n）破坏 SSE 协议结构
+                                                      std::string sseData = "data: " + Json::valueToQuotedString(chunk.c_str()) + "\n\n";
+
+                                                      // 使用 DataSink 立刻将数据写入网络套接字，推送到客户端
+                                                      dataSink.write(sseData.c_str(), sseData.size());
+
+                                                      // 处理结束标记
+                                                      if (last)
+                                                      {
+                                                          std::string doneData = "data: [DONE]\n\n";
+                                                          dataSink.write(doneData.c_str(), doneData.size());
+                                                          dataSink.done(); // 通知 HTTP 引擎当前流式响应已彻底结束
+                                                          return false;    // 终止底层等待
+                                                      }
+                                                      return true;
+                                                  };
+
+                                                  // 【细节优化】：在发起可能耗时较长的大模型请求前，
+                                                  // 先给客户端发送一个空的数据块，确保 HTTP 响应头立刻发出去，避免前端因首包超时而断开连接。
+                                                  if (!writeChunk("", false))
+                                                  {
+                                                      return false;
+                                                  }
+
+                                                  // 4. 调用底层 SDK 发送流式请求
+                                                  // 该调用会阻塞当前工作线程，但内部会不断触发 writeChunk 回调
+                                                  _chatSDK->sendMessageStream(sessionId, message, writeChunk);
+
+                                                  return false; // 返回 false 表示所有数据提供完毕，关闭连接
+                                              });
+    }
+
 } // namespace ai_chat_server
