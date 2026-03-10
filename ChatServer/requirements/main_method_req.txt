@@ -1,0 +1,20 @@
+任务目标：在 ChatServer 目录下生成 main.cpp 文件，用于启动 ChatServer。
+
+具体需求：
+1. 使用 gflags 库定义 ServerConfig 所需的参数，支持通过命令行传入。
+2. 参数默认值设置：
+   - host: 默认 "0.0.0.0"
+   - port: 默认 8080
+   - logLevel: 默认 "INFO"
+   - temperature: 默认 0.7
+   - max_tokens: 默认 2048
+   - Ollama模型配置: ollama_model (默认 "deepseek-r1:1.5b"), ollama_endpoint (默认 "http://127.0.0.1:11434")
+3. 安全规范：
+   - deepseek、chatgpt、gemini 等云端 API Key 绝不能通过命令行暴露，必须直接从系统环境变量中获取（如 std::getenv）。
+4. 参数安全校验逻辑：
+   - temperature 必须在 0.0 到 2.0 之间。
+   - max_tokens 必须大于 0。
+   - 至少有一个云端模型的 API Key 不为空，Ollama 的配置也不能为空，否则提示错误并退出。
+5. 帮助信息：
+   - 当用户输入 -h 或 --help 时，利用 gflags 打印详细参数说明。
+   - 提供自定义的 Version 信息（1.0.0）。

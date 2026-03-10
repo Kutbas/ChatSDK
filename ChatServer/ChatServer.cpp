@@ -479,4 +479,44 @@ namespace ai_chat_server
                                               });
     }
 
+    // 设置 HTTP 路由规则
+    void ChatServer::setHttpRoutes()
+    {
+        // 1. 处理创建会话请求
+        // 接口：POST /api/session
+        _chatServer->Post("/api/session", [this](const httplib::Request &request, httplib::Response &response)
+                          { handleCreateSessionRequest(request, response); });
+
+        // 2. 处理获取会话列表请求
+        // 接口：GET /api/sessions
+        _chatServer->Get("/api/sessions", [this](const httplib::Request &request, httplib::Response &response)
+                         { handleGetSessionListsRequest(request, response); });
+
+        // 3. 处理获取模型列表请求
+        // 接口：GET /api/models
+        _chatServer->Get("/api/models", [this](const httplib::Request &request, httplib::Response &response)
+                         { handleGetModelListsRequest(request, response); });
+
+        // 4. 处理删除会话请求 (带路径参数)
+        // 接口：DELETE /api/session/{sessionId}
+        // 使用正则表达式 (.*) 捕获任意字符组合作为 sessionId
+        _chatServer->Delete("/api/session/(.*)", [this](const httplib::Request &request, httplib::Response &response)
+                            { handleDeleteSessionRequest(request, response); });
+
+        // 5. 处理获取历史消息请求 (带路径参数)
+        // 接口：GET /api/session/{sessionId}/history
+        _chatServer->Get("/api/session/(.*)/history", [this](const httplib::Request &request, httplib::Response &response)
+                         { handleGetHistoryMessagesRequest(request, response); });
+
+        // 6. 处理发送消息请求 - 全量返回
+        // 接口：POST /api/message
+        _chatServer->Post("/api/message", [this](const httplib::Request &request, httplib::Response &response)
+                          { handleSendMessageRequest(request, response); });
+
+        // 7. 处理发送消息请求 - 增量返回 (流式 SSE)
+        // 接口：POST /api/message/async
+        _chatServer->Post("/api/message/async", [this](const httplib::Request &request, httplib::Response &response)
+                          { handleSendMessageStreamRequest(request, response); });
+    }
+
 } // namespace ai_chat_server
