@@ -131,7 +131,7 @@ int main(int argc, char **argv)
         // 从环境变量获取API密钥
         config.deepseekAPIKey = getEnvVar("deepseek_apikey");
         config.chatGPTAPIKey = getEnvVar("chatgpt_apikey");
-        config.geminiAPIKey = getEnvVar("gemini_apikey_new");
+        config.geminiAPIKey = getEnvVar("gemini_apikey");
         // 从命令行参数获取Ollama配置
         config.ollamaModelName = FLAGS_ollama_model_name;
         config.ollamaModelDesc = FLAGS_ollama_model_desc;

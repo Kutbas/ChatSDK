@@ -27,7 +27,7 @@ namespace ai_chat_server
 
         // ---------------- Gemini ----------------
         auto geminiConfig = std::make_shared<ai_chat_sdk::APIConfig>();
-        geminiConfig->_modelName = "gemini-2.0-flash";
+        geminiConfig->_modelName = "gemini-2.5-flash";
         geminiConfig->_apiKey = config.geminiAPIKey;
         geminiConfig->_temperature = config.temperature;
         geminiConfig->_maxTokens = config.maxTokens;

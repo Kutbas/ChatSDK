@@ -31,5 +31,8 @@
 *.out
 *.app
 
-build/
+# build/
+test/build/
 testSQLite/
+ChatServer/build/
+!ChatServer/build/www/***
