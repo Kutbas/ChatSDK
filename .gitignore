@@ -33,6 +33,12 @@
 
 # build/
 test/build/
+sdk/build/
 testSQLite/
-ChatServer/build/
-!ChatServer/build/www/***
+ChatServer/build/CMakeFiles/
+ChatServer/build/AIChatServer
+ChatServer/build/chatDB.db
+ChatServer/build/ChatServer.conf
+ChatServer/build/cmake_install.cmake
+ChatServer/build/CMakeCache.txt
+ChatServer/build/Makefile
