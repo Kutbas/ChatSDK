@@ -1,2 +1,0 @@
-/usr/bin/ar qc libai_chat_sdk.a CMakeFiles/ai_chat_sdk.dir/src/ChatGPTProvider.cpp.o CMakeFiles/ai_chat_sdk.dir/src/ChatSDK.cpp.o CMakeFiles/ai_chat_sdk.dir/src/DataManager.cpp.o CMakeFiles/ai_chat_sdk.dir/src/DeepSeekProvider.cpp.o CMakeFiles/ai_chat_sdk.dir/src/GeminiProvider.cpp.o CMakeFiles/ai_chat_sdk.dir/src/LLMManager.cpp.o CMakeFiles/ai_chat_sdk.dir/src/OllamaLLMProvider.cpp.o CMakeFiles/ai_chat_sdk.dir/src/SessionManager.cpp.o CMakeFiles/ai_chat_sdk.dir/src/util/myLog.cpp.o
-/usr/bin/ranlib libai_chat_sdk.a

@@ -1,7 +1,0 @@
-/home/frioi/ASDK/ChatSDK/sdk/build/CMakeFiles/ai_chat_sdk.dir
-/home/frioi/ASDK/ChatSDK/sdk/build/CMakeFiles/edit_cache.dir
-/home/frioi/ASDK/ChatSDK/sdk/build/CMakeFiles/rebuild_cache.dir
-/home/frioi/ASDK/ChatSDK/sdk/build/CMakeFiles/list_install_components.dir
-/home/frioi/ASDK/ChatSDK/sdk/build/CMakeFiles/install.dir
-/home/frioi/ASDK/ChatSDK/sdk/build/CMakeFiles/install/local.dir
-/home/frioi/ASDK/ChatSDK/sdk/build/CMakeFiles/install/strip.dir
