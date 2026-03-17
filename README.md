@@ -241,4 +241,4 @@ export deepseek_apikey="sk-你的真实API_KEY"
 
 ## 📜 许可证 (License)
 
-本项目遵循 [MIT / Apache 2.0] 许可证开源。
+本项目遵循 [GPL-3.0] 许可证开源。
