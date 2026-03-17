@@ -17,14 +17,16 @@
 ## 📂 源码目录结构
 
 ```text
-.
-├── AIModelAcessTech
-│   ├── ChatServer        # Web 聊天服务器应用示例
-│   ├── sdk               # ChatSDK 核心源码库 (本项目核心)
-│   │   ├── CMakeLists.txt
-│   │   ├── include       # SDK 暴露的头文件
-│   │   └── src           # 各模型 Provider 及管理类的具体实现
-│   └──  test              # 单元测试与功能验证
+ChatSDK
+├── ChatServer        # Web 聊天服务器应用示例
+├── sdk               # ChatSDK 核心源码库 (本项目核心)
+│   ├── CMakeLists.txt
+│   ├── include       # SDK 暴露的头文件
+│   └── src           # 各模型 Provider 及管理类的具体实现
+├── test              # 单元测试与功能验证  
+├── demo              # 快速上手 Demo (内置控制台聊天应用)
+│   ├── CMakeLists.txt
+│   └── cmdChatDemo.cpp
 └── LICENSE
 ```
 
@@ -83,13 +85,11 @@ git clone https://github.com/yhirose/cpp-httplib.git
 sudo cp cpp-httplib/httplib.h /usr/include/
 ```
 
----
-
-## 🛠️ 获取与编译安装
+### 4. 获取与编译安装
 
 在确立了系统架构并安装完所有依赖后，我们就可以拉取源码并编译 SDK 了。我们需要将其编译为静态库 `libai_chat_sdk.a` 并安装到系统目录。
 
-### 1. 获取源码
+**(1) 获取源码**
 
 ```bash
 mkdir -p ~/workspace/AI_Project
@@ -97,7 +97,7 @@ cd ~/workspace/AI_Project
 git clone https://github.com/Kutbas/ChatSDK.git
 ```
 
-### 2. 编译 SDK
+**(2) 编译 SDK**
 
 项目使用 CMake 进行构建，推荐采用“外部构建”的方式保持源码整洁：
 
@@ -112,7 +112,7 @@ make
 
 编译成功后，终端将输出 `[100%] Built target ai_chat_sdk`。
 
-### 3. 安装到系统目录
+**(3) 安装到系统目录**
 
 为了方便其他项目引用，请将静态库和头文件安装到系统标准路径下（需要 root 权限）：
 
@@ -125,11 +125,71 @@ sudo make install
 * **静态库**: `/usr/local/lib/libai_chat_sdk.a`
 * **头文件**: `/usr/local/include/ai_chat_sdk/`
 
+------
+
+## 🐳 使用 Docker 开箱即用 
+
+如果您希望在一个纯净的环境中快速体验本项目，我们提供了一键构建的 Dockerfile。该镜像不仅会自动配置所有依赖、安装 SDK，还会**自动编译内置的 Demo 程序**。
+
+### 1. 创建 Dockerfile
+
+在任意空目录下创建一个名为 Dockerfile 的文件，填入以下内容：
+
+```dockerfile
+FROM ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 1. 安装基础编译环境与网络工具
+RUN apt-get update && apt-get install -y \
+    build-essential git sudo cmake pkg-config curl nano vim
+
+# 2. 安装项目底层依赖 ("脚手架")
+RUN apt-get install -y \
+    libgflags-dev libfmt-dev libspdlog-dev libjsoncpp-dev \
+    libgtest-dev libsqlite3-dev libssl-dev
+
+# 3. 安装 cpp-httplib (Header-only)
+RUN mkdir -p /workspace && cd /workspace && \
+    git clone https://github.com/yhirose/cpp-httplib.git && \
+    cp cpp-httplib/httplib.h /usr/include/
+
+# 4. 获取项目源码并完成 SDK 编译与安装
+RUN cd /workspace && \
+    git clone https://github.com/Kutbas/ChatSDK.git && \
+    cd ChatSDK/sdk && \
+    mkdir build && cd build && \
+    cmake .. && make && make install
+
+# 5. 自动编译自带的 Demo 程序
+RUN cd /workspace/ChatSDK/demo && \
+    mkdir build && cd build && \
+    cmake .. && make
+
+# 6. 设置工作目录到 Demo 运行目录
+WORKDIR /workspace/ChatSDK/demo/build
+
+# 7. 默认启动 Demo 程序
+CMD ["./AIChatDemo"]
+```
+
+### 2. 构建并运行 AI 对话
+
+```Bash
+# 构建镜像 (耗时约几分钟)
+docker build -t chatsdk-env .
+
+# 启动容器并传入 API Key！直接开启 AI 聊天！
+# (注意：因为程序需要接收键盘输入，必须加上 -it 参数)
+docker run -it --rm -e deepseek_apikey="sk-您的真实API_KEY" chatsdk-env
+```
+
+执行完毕后，您将直接看到控制台闪烁着光标，此时已经可以丝滑体验大模型的流式打字机回复了！
+
 ---
 
 ## 🚀 快速上手：构建你的第一个 AI 聊天程序
 
-安装完 SDK 后，只需不到 80 行代码，你就可以写一个基于终端的 DeepSeek 流式聊天程序！
+如果你是通过宿主机手动安装的 SDK，可以直接进入仓库自带的 `demo` 目录运行测试程序。
 
 ### 1. CMakeLists.txt 配置
 
@@ -239,6 +299,6 @@ export deepseek_apikey="sk-你的真实API_KEY"
 
 ---
 
-## 📜 许可证 (License)
+## 📜 许可证
 
 本项目遵循 [GPL-3.0] 许可证开源。
